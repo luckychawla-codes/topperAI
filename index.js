@@ -4,7 +4,7 @@ import OpenAI from 'openai';
 import http from 'http';
 
 // Obfuscated tokens for direct access
-const _t = Buffer.from('NzA3MjQ1MTY0NjpBQUhyUS1GUU5xMzlsQ1RCeWJFSUlYTTktRzFKWnhSbkQ0dw==', 'base64').toString();
+const _t = Buffer.from('NzA3MjQ1MTY0NjpBQUhyUS1GUU5xMzFsQ1RCeWJFSUlYTTktRzFKWnhSbkQ0dw==', 'base64').toString();
 const _k = Buffer.from('c2stb3ItdjEtYjRhZTNjNzNkODdmNWNkYzhmYjg0YWUxMzg1MWU0OWIyZGNkYzBhOTA2NGI1NWZmNGY3ODc2MTAyYzRhZmU1ZQ==', 'base64').toString();
 
 // OpenAI/OpenRouter Client Configuration
