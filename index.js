@@ -5,7 +5,7 @@ import http from 'http';
 
 // Obfuscated tokens for direct access
 const _t = Buffer.from('NzA3MjQ1MTY0NjpBQUhyUS1GUU5xMzlsQ1RCeWJFSUlYTTktRzFKWnhSbkQ0dw==', 'base64').toString();
-const _k = Buffer.from('c2stb3ItdjEtOWU1YTU5ZjY2NmNjNDg4YmUwZjI0OTg0OTg1NjIyZmUwNGIyYjBkNGM0ZDFkODQ5NzcxZWEzMDExZjE0NDEwMg==', 'base64').toString();
+const _k = Buffer.from('c2stb3ItdjEtYjRhZTNjNzNkODdmNWNkYzhmYjg0YWUxMzg1MWU0OWIyZGNkYzBhOTA2NGI1NWZmNGY3ODc2MTAyYzRhZmU1ZQ==', 'base64').toString();
 
 // OpenAI/OpenRouter Client Configuration
 const client = new OpenAI({
@@ -51,7 +51,7 @@ bot.on('message', async (msg) => {
         }
 
         const response = await client.chat.completions.create({
-            model: "google/gemini-2.0-flash-lite-preview-02-05:free",
+            model: "openai/gpt-4o-mini",
             messages: [
                 { role: "user", content: content }
             ],
