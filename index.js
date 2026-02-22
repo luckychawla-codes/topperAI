@@ -66,7 +66,7 @@ bot.on('message', async (msg) => {
         let errorMessage = "❌ Sorry, I encountered an error while processing your request.";
 
         if (error.status === 401) {
-            errorMessage = "❌ API Key Error: Please check your OPENROUTER_API_KEY in Render settings.";
+            errorMessage = "⚠️ OpenRouter API Key Error: 'User not found'. Your API key appears to be invalid or deleted. Please generate a new one at openrouter.ai/keys and update it.";
         }
 
         bot.sendMessage(chatId, errorMessage);
