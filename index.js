@@ -50,7 +50,7 @@ bot.on('message', async (msg) => {
         }
 
         const response = await client.chat.completions.create({
-            model: "qwen/qwen3-vl-30b-a3b-thinking",
+            model: "google/gemini-2.0-flash-lite-preview-02-05:free",
             messages: [
                 { role: "user", content: content }
             ],
@@ -61,8 +61,14 @@ bot.on('message', async (msg) => {
         // Send response back to user
         bot.sendMessage(chatId, reply, { parse_mode: 'Markdown' });
     } catch (error) {
-        console.error("Error calling OpenRouter API:", error);
-        bot.sendMessage(chatId, "❌ Sorry, I encountered an error while processing your request.");
+        console.error("DEBUG - API Error Details:", JSON.stringify(error, null, 2));
+        let errorMessage = "❌ Sorry, I encountered an error while processing your request.";
+
+        if (error.status === 401) {
+            errorMessage = "❌ API Key Error: Please check your OPENROUTER_API_KEY in Render settings.";
+        }
+
+        bot.sendMessage(chatId, errorMessage);
     }
 });
 
