@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import TelegramBot from 'node-telegram-bot-api';
 import OpenAI from 'openai';
+import http from 'http';
 
 // Telegram Bot Token - Use environment variable for security
 const token = process.env.TELEGRAM_BOT_TOKEN || '7072451646:AAHrQ-FQNq31lCTBybEIIXM9-G1JZxRnD4w';
@@ -67,4 +68,16 @@ bot.on('message', async (msg) => {
 
 bot.on('polling_error', (error) => {
     console.error("Polling error:", error);
+});
+
+// Create a simple HTTP server to satisfy Render's health check
+// This prevents the service from being marked as failed for not binding to a port
+const port = process.env.PORT || 3000;
+const server = http.createServer((req, res) => {
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.end('Bot is running\n');
+});
+
+server.listen(port, () => {
+    console.log(`Health check server listening on port ${port}`);
 });
