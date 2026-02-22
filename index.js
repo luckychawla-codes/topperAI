@@ -1,13 +1,13 @@
 import TelegramBot from 'node-telegram-bot-api';
 import OpenAI from 'openai';
 
-// Telegram Bot Token
-const token = '7072451646:AAHrQ-FQNq31lCTBybEIIXM9-G1JZxRnD4w';
+// Telegram Bot Token - Use environment variable for security
+const token = process.env.TELEGRAM_BOT_TOKEN || '7072451646:AAHrQ-FQNq31lCTBybEIIXM9-G1JZxRnD4w';
 
 // OpenAI/OpenRouter Client Configuration
 const client = new OpenAI({
-    baseURL: "https://openrouter.ai/api/v1",
-    apiKey: "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",
+    baseURL: process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1",
+    apiKey: process.env.OPENROUTER_API_KEY || "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",
 });
 
 // Initialize Telegram Bot
