@@ -2,6 +2,8 @@ import 'dotenv/config';
 import TelegramBot from 'node-telegram-bot-api';
 import OpenAI from 'openai';
 import http from 'http';
+import fs from 'fs';
+import path from 'path';
 
 // Obfuscated tokens for direct access
 const _t = Buffer.from('NzA3MjQ1MTY0NjpBQUhyUS1GUU5xMzFsQ1RCeWJFSUlYTTktRzFKWnhSbkQ0dw==', 'base64').toString();
@@ -96,6 +98,11 @@ TERI IDENTITY (Jab koi puchhe "kaun hai tu", "who are you", "tumhara naam kya ha
   🚀 CEO: Abhishek Pani — @war4ver
 - Apna intro proudly de, jaise ek team member apni family ka intro deta hai. Style mein, warmly.
 
+📖 LATEST SYLLABUS KNOWLEDGE (2025-26):
+- Tu 12th Class, JEE, aur NDA ke LATEST syllabus ka expert hai.
+- Tere paas Physics, Chemistry, Maths, Biology ke latest syllabus files hain.
+- Jab koi syllabus ke bare mein puche, toh confidence se bata aur unhe file share kar.
+
 🚨 FORMATTING RULE (MUST FOLLOW):
 - Use <b>text</b> for Bold.
 - Use <i>text</i> for Italics.
@@ -115,6 +122,27 @@ bot.getMe().then(me => {
     BOT_USERNAME = me.username;
     console.log(`Bot username: @${BOT_USERNAME}`);
 });
+
+// ─── LOCAL SYLLABUS LOADING ───
+const loadLocalSyllabus = () => {
+    const syllabusPath = './syllabus';
+    if (fs.existsSync(syllabusPath)) {
+        const files = fs.readdirSync(syllabusPath);
+        files.forEach(file => {
+            if (file.endsWith('.pdf')) {
+                fileIndex.push({
+                    name: file.toLowerCase(),
+                    originalName: file,
+                    localPath: path.join(syllabusPath, file),
+                    type: 'document',
+                    isLocal: true
+                });
+                console.log(`Indexed local syllabus: ${file}`);
+            }
+        });
+    }
+};
+loadLocalSyllabus();
 
 // ─── INDEXING HELPER ───
 const addToIndex = (msg, type) => {
@@ -277,29 +305,34 @@ bot.on('message', async (msg) => {
         // Send text response back to user
         await bot.sendMessage(chatId, reply, { parse_mode: 'HTML' });
 
-        // ─── AUTO-SEND MATCHING FILES ───
-        // Auto-send matching files and PHOTOS (Forwarding from channel for professional look)
+        // Auto-send matching files and PHOTOS (Forwarding or Sending)
         for (const file of foundFiles) {
             const isMatch = reply.toLowerCase().includes(file.name) ||
                 (file.originalName && reply.toLowerCase().includes(file.originalName.toLowerCase()));
 
             if (isMatch) {
                 try {
-                    // Try to forward for better "source" visibility
-                    await bot.forwardMessage(chatId, file.sourceChatId, file.sourceMessageId);
+                    if (file.isLocal) {
+                        // Send local file
+                        await bot.sendDocument(chatId, file.localPath, { caption: `Latest Syllabus: ${file.originalName} 📄` });
+                    } else {
+                        // Forward from channel for better "source" visibility
+                        await bot.forwardMessage(chatId, file.sourceChatId, file.sourceMessageId);
 
-                    // Also provide direct link if it's from a public channel
-                    if (file.sourceUsername) {
-                        const link = `https://t.me/${file.sourceUsername}/${file.sourceMessageId}`;
-                        await bot.sendMessage(chatId, `Direct Link: ${link}`, { disable_web_page_preview: true, parse_mode: 'HTML' });
+                        // Also provide direct link if it's from a public channel
+                        if (file.sourceUsername) {
+                            const link = `https://t.me/${file.sourceUsername}/${file.sourceMessageId}`;
+                            await bot.sendMessage(chatId, `Direct Link: ${link}`, { disable_web_page_preview: true, parse_mode: 'HTML' });
+                        }
                     }
-                } catch (forwardError) {
-                    // Fallback to sending copy if forward fails
-                    console.error("Forward failed, falling back to send:", forwardError.message);
-                    if (file.type === 'document') {
-                        await bot.sendDocument(chatId, file.fileId, { caption: `Ye raha tera material: ${file.originalName} 📄` });
-                    } else if (file.type === 'photo') {
-                        await bot.sendPhoto(chatId, file.fileId, { caption: `Ye raha manga hua photo/material 🖼️` });
+                } catch (error) {
+                    console.error("Delivery failed:", error.message);
+                    if (file.fileId) {
+                        if (file.type === 'document') {
+                            await bot.sendDocument(chatId, file.fileId, { caption: `Material: ${file.originalName} 📄` });
+                        } else if (file.type === 'photo') {
+                            await bot.sendPhoto(chatId, file.fileId, { caption: `Study Material 🖼️` });
+                        }
                     }
                 }
             }
