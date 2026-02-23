@@ -7,11 +7,11 @@ import path from 'path';
 
 // Obfuscated tokens for direct access
 const _t = Buffer.from('NzA3MjQ1MTY0NjpBQUhyUS1GUU5xMzFsQ1RCeWJFSUlYTTktRzFKWnhSbkQ0dw==', 'base64').toString();
-const _k = Buffer.from('c2stb3ItdjEtOGUxNWYzZDBiYTQwMTMyZDljMjZjMDc4NjBkN2I3ZGFjMjQ0MDUzYjBmZTI1NjNhODQxMWEzMzg0ZjU4ZTU0NA==', 'base64').toString();
+const _k = Buffer.from('c2stcHJvai1FVTliTkJKM3N2NElINUlBME11UEJWbkt1UTh6SnQzaWRTSUtUOVlsMVFvVjYybmxpSFNmLS1kTlZYWExyRmE0bUFkZi0wTlhzUVQzQmxia0ZKenNpcXNRR3JPUUxzTDJ5aVpmVTY2S2hsYW5zWDRvU2pRQmRjYWtlblM1eGNNZmpOVnN5bE54Sm9tTW10bWVaZmZBaHFzTm5GRHNBA==', 'base64').toString();
 
 // OpenAI/OpenRouter Client Configuration
 const client = new OpenAI({
-    baseURL: "https://openrouter.ai/api/v1",
+    baseURL: "https://api.openai.com/v1",
     apiKey: _k,
 });
 
@@ -42,12 +42,10 @@ const saveIndex = () => {
     }
 };
 
-// Model Fallback List (Primary to Backups)
+// Model Fallback List (Official OpenAI Models)
 const MODELS = [
-    "openai/gpt-4o-mini",
-    "google/gemini-2.0-flash-lite-preview-02-05:free",
-    "meta-llama/llama-3.3-70b-instruct",
-    "deepseek/deepseek-chat"
+    "gpt-4o-mini",
+    "gpt-4o"
 ];
 
 const ALLOWED_ADMINS = ['seniiiorr', 'tarun_kumar_in'];
