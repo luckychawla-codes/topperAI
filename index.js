@@ -21,12 +21,12 @@ console.log("Bot is starting...");
 // System prompt - TopperAI persona
 const SYSTEM_PROMPT = `Tu "TopperAI" hai — ek best friend, mentor, aur career guide jo kabhi judge nahi karta. 🤝
 
-🚨 LANGUAGE RULE — SABSE PEHLE PADH (STRICT):
-- TU HAMESHA HINGLISH MEIN REPLY KAREGA — koi exception nahi.
-- Hinglish = Hindi words + English words mix karke, Roman script mein (Devanagari nahi).
-- Chahe koi English mein pooche, chahe Hindi mein — TERA REPLY HINGLISH HI HOGA.
-- Example of Hinglish: "Yaar, Newton ka 3rd law basically kehta hai ki har action ka ek equal aur opposite reaction hota hai!"
-- Pure English ya pure Hindi — BILKUL NAHI. Always mix karna hai.
+🌐 LANGUAGE RULE — MUST FOLLOW:
+- Jo bhasha user use kare, USI bhasha mein reply kar.
+- User ne English mein likha → Tu bhi English mein reply karega (friendly tone ke saath).
+- User ne Hinglish mein likha → Tu bhi Hinglish mein reply karega.
+- User ne Hindi mein likha → Tu Hinglish mein reply karega (Devanagari script avoid kar, Roman hi use kar).
+- KABHI bhi pure formal/robotic language use mat kar — tone hamesha friendly dost wali honi chahiye.
 
 TERI PERSONALITY:
 - Tu ek close dost ki tarah baat karta hai — warm, funny, caring aur encouraging.
@@ -80,16 +80,36 @@ TERI IDENTITY (Jab koi puchhe "kaun hai tu", "who are you", "tumhara naam kya ha
 const userConversations = new Map();
 const MAX_HISTORY = 10; // Keep last 10 messages per user
 
+// Get bot info once at startup for group mention detection
+let BOT_USERNAME = '';
+bot.getMe().then(me => {
+    BOT_USERNAME = me.username;
+    console.log(`Bot username: @${BOT_USERNAME}`);
+});
+
 bot.on('message', async (msg) => {
     const chatId = msg.chat.id;
     const userId = msg.from.id;
-    const text = msg.text;
+    const text = msg.text || '';
     const photo = msg.photo;
+    const chatType = msg.chat.type; // 'private', 'group', 'supergroup', 'channel'
 
     if (!text && !photo) return;
 
+    // ─── GROUP CHAT LOGIC ───
+    // In groups/supergroups, only respond if bot is @mentioned
+    const isGroup = chatType === 'group' || chatType === 'supergroup';
+    if (isGroup) {
+        const isMentioned = text.includes(`@${BOT_USERNAME}`) ||
+            (msg.entities && msg.entities.some(e => e.type === 'mention' && text.substring(e.offset, e.offset + e.length) === `@${BOT_USERNAME}`));
+        if (!isMentioned) return; // Silently ignore if not mentioned
+    }
+
+    // Strip the bot mention from the text before sending to AI
+    const cleanText = text.replace(new RegExp(`@${BOT_USERNAME}`, 'gi'), '').trim();
+
     // Handle /start command
-    if (text === '/start') {
+    if (cleanText === '/start' || text === '/start') {
         bot.sendMessage(chatId,
             `Aye yaar! 👋 Kya scene hai?\n\nMai *TopperAI* hoon — tera best study buddy aur career guide! 🚀\n\nMujhse pooch:\n📚 CBSE, NEET, JEE, CUET, NDA ke questions\n🎯 Career guidance & stream selection\n💡 Kuch bhi samajh nahi aaya? Explain karta hoon!\n\nBata, kya help chahiye? 😄`,
             { parse_mode: 'Markdown' }
@@ -98,7 +118,7 @@ bot.on('message', async (msg) => {
     }
 
     // Handle /clear command to reset conversation
-    if (text === '/clear') {
+    if (cleanText === '/clear' || text === '/clear') {
         userConversations.delete(userId);
         bot.sendMessage(chatId, `Memory clear kar di! 🧹 Fresh start karte hain yaar! 😄`);
         return;
@@ -116,8 +136,8 @@ bot.on('message', async (msg) => {
 
         let content = [];
 
-        if (text) {
-            content.push({ type: "text", text: text });
+        if (cleanText) {
+            content.push({ type: "text", text: cleanText });
         }
 
         if (photo) {
