@@ -18,17 +18,87 @@ const bot = new TelegramBot(_t, { polling: true });
 
 console.log("Bot is starting...");
 
+// System prompt - TopperAI persona
+const SYSTEM_PROMPT = `Tu "TopperAI" hai — ek best friend, mentor, aur career guide jo kabhi judge nahi karta. 🤝
+
+TERI PERSONALITY:
+- Tu ek close dost ki tarah baat karta hai — warm, funny, caring aur encouraging.
+- Kabhi boring ya robotic mat ban. Har reply mein thoda dil daal.
+- Hinglish mein reply kar (Hindi + English mix) — jaise friends WhatsApp pe baat karte hain.
+- Emojis use kar jab natural lage — overdo mat kar.
+
+REPLY LENGTH RULE (BAHUT IMPORTANT):
+- Short sawaal = Short reply. Directly point pe aa.
+- Detailed/complex sawaal = Tabhi lamba reply de.
+- Kabhi bhi unnecessarily lamba mat likh. Quality > Quantity.
+
+TUJHE KYA PATA HAI (EXPERT AREAS):
+📚 CBSE Class 10 & 12 (Physics, Chemistry, Biology, Maths, English, all subjects)
+🔬 NEET UG — Bio, Physics, Chemistry (NCERT-based, concept clarity)
+📐 JEE Mains & Advanced — Maths, Physics, Chemistry (problem solving)
+📝 CUET — Domain subjects, General Test, Language section
+⚔️ NDA — Maths, GAT (English, GK, Physics, Chemistry, History, Geography, Current Affairs)
+🎯 Career Guidance — Stream selection, college choices, entrance exams, future planning
+
+CBSE RULES:
+- Class 10: Chemical Reactions, Acids/Bases, Metals, Carbon, Life Processes, Heredity, Light, Electricity, Magnetism, Environment (latest syllabus)
+- Class 12 PCM: Relations, Matrices, Calculus, Vectors, 3D Geometry, Probability | Current Electricity, Optics, Modern Physics | Solutions, Kinetics, Electrochemistry, d-f Block, Coordination Compounds, Organic
+- Class 12 PCB: All Biology chapters (Reproduction, Genetics, Evolution, Health, Ecology, Biotechnology)
+
+EXAM TIPS STYLE:
+- JEE ke liye: Concept + Formula + Shortcut trick
+- NEET ke liye: NCERT line-by-line, diagram recall, assertion-reason tips
+- CUET ke liye: Speed + Accuracy, topic-wise weightage
+- NDA ke liye: Maths strong kar, current affairs daily
+
+CAREER GUIDE MODE:
+- Jab koi confused ho stream ke baare mein, career path ke baare mein — dost ki tarah sun, then guide kar.
+- Pros/Cons clearly bata, realistic advice de.
+
+GOLDEN RULES:
+❌ Kabhi discourage mat kar
+❌ Kabhi "I'm just an AI" mat bol — tu unka dost hai
+✅ Hamesha positively end kar
+✅ Agar koi sad/stressed ho toh pehle empathize kar, phir help kar`;
+
+// Per-user conversation memory (in-memory, resets on restart)
+const userConversations = new Map();
+const MAX_HISTORY = 10; // Keep last 10 messages per user
+
 bot.on('message', async (msg) => {
     const chatId = msg.chat.id;
+    const userId = msg.from.id;
     const text = msg.text;
     const photo = msg.photo;
 
     if (!text && !photo) return;
 
+    // Handle /start command
+    if (text === '/start') {
+        bot.sendMessage(chatId,
+            `Aye yaar! 👋 Kya scene hai?\n\nMai *TopperAI* hoon — tera best study buddy aur career guide! 🚀\n\nMujhse pooch:\n📚 CBSE, NEET, JEE, CUET, NDA ke questions\n🎯 Career guidance & stream selection\n💡 Kuch bhi samajh nahi aaya? Explain karta hoon!\n\nBata, kya help chahiye? 😄`,
+            { parse_mode: 'Markdown' }
+        );
+        return;
+    }
+
+    // Handle /clear command to reset conversation
+    if (text === '/clear') {
+        userConversations.delete(userId);
+        bot.sendMessage(chatId, `Memory clear kar di! 🧹 Fresh start karte hain yaar! 😄`);
+        return;
+    }
+
     // Show "typing" status
     bot.sendChatAction(chatId, 'typing');
 
     try {
+        // Get or create conversation history for this user
+        if (!userConversations.has(userId)) {
+            userConversations.set(userId, []);
+        }
+        const history = userConversations.get(userId);
+
         let content = [];
 
         if (text) {
@@ -36,37 +106,43 @@ bot.on('message', async (msg) => {
         }
 
         if (photo) {
-            // Get the highest resolution photo
             const fileId = photo[photo.length - 1].file_id;
             const fileUrl = await bot.getFileLink(fileId);
-
-            content.push({
-                type: "image_url",
-                image_url: { url: fileUrl }
-            });
-
+            content.push({ type: "image_url", image_url: { url: fileUrl } });
             if (msg.caption) {
                 content.push({ type: "text", text: msg.caption });
             }
         }
 
+        // Add user message to history
+        history.push({ role: "user", content: content });
+
+        // Keep history within limit
+        if (history.length > MAX_HISTORY) {
+            history.splice(0, history.length - MAX_HISTORY);
+        }
+
         const response = await client.chat.completions.create({
             model: "openai/gpt-4o-mini",
             messages: [
-                { role: "user", content: content }
+                { role: "system", content: SYSTEM_PROMPT },
+                ...history
             ],
         });
 
         const reply = response.choices[0].message.content;
 
+        // Add assistant reply to history
+        history.push({ role: "assistant", content: reply });
+
         // Send response back to user
         bot.sendMessage(chatId, reply, { parse_mode: 'Markdown' });
     } catch (error) {
         console.error("DEBUG - API Error Details:", JSON.stringify(error, null, 2));
-        let errorMessage = "❌ Sorry, I encountered an error while processing your request.";
+        let errorMessage = "Yaar kuch gadbad ho gayi! 😅 Ek baar phir try kar na.";
 
         if (error.status === 401) {
-            errorMessage = "⚠️ OpenRouter API Key Error: 'User not found'. Your API key appears to be invalid or deleted. Please generate a new one at openrouter.ai/keys and update it.";
+            errorMessage = "⚠️ API Key Error! Admin ko batao please.";
         }
 
         bot.sendMessage(chatId, errorMessage);
