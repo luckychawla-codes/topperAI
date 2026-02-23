@@ -107,31 +107,49 @@ bot.getMe().then(me => {
     console.log(`Bot username: @${BOT_USERNAME}`);
 });
 
+// ─── INDEXING HELPER ───
+const addToIndex = (msg, type) => {
+    let fileId, fileName;
+
+    if (type === 'document') {
+        fileId = msg.document.file_id;
+        fileName = msg.document.file_name || 'Untitled File';
+    } else if (type === 'photo') {
+        fileId = msg.photo[msg.photo.length - 1].file_id;
+        fileName = msg.caption || `Photo_${fileId.substring(0, 8)}`;
+    }
+
+    if (!fileId) return;
+
+    // Avoid duplicate entries
+    if (!fileIndex.find(f => f.fileId === fileId)) {
+        fileIndex.push({
+            name: fileName.toLowerCase(),
+            originalName: fileName,
+            fileId: fileId,
+            type: type
+        });
+        console.log(`Indexed new ${type}: ${fileName}`);
+    }
+};
+
+// Listen for channel posts (for indexing from @CBSET0PPERS)
+bot.on('channel_post', (msg) => {
+    if (msg.document) addToIndex(msg, 'document');
+    if (msg.photo) addToIndex(msg, 'photo');
+});
+
 bot.on('message', async (msg) => {
     const chatId = msg.chat.id;
     const userId = msg.from.id;
     const text = msg.text || '';
     const photo = msg.photo;
     const document = msg.document;
-    const chatType = msg.chat.type; // 'private', 'group', 'supergroup', 'channel'
+    const chatType = msg.chat.type;
 
-    // ─── FILE INDEXING ───
-    // If a document is uploaded, index it for future search
-    if (document) {
-        const fileName = document.file_name || 'Untitled File';
-        const fileId = document.file_id;
-
-        // Avoid duplicate entries
-        if (!fileIndex.find(f => f.fileId === fileId)) {
-            fileIndex.push({
-                name: fileName.toLowerCase(),
-                originalName: fileName,
-                fileId: fileId,
-                type: 'document'
-            });
-            console.log(`Indexed new file: ${fileName}`);
-        }
-    }
+    // Index files/photos from messages too
+    if (document) addToIndex(msg, 'document');
+    if (photo) addToIndex(msg, 'photo');
 
     if (!text && !photo && !document) return;
 
@@ -157,7 +175,7 @@ bot.on('message', async (msg) => {
     // Handle /start command
     if (cleanText === '/start' || text === '/start') {
         bot.sendMessage(chatId,
-            `Aye yaar! 👋 Kya scene hai?\n\nMai *TopperAI* hoon — tera best study buddy aur career guide! 🚀\n\nMujhse pooch:\n📚 CBSE, NEET, JEE, CUET, NDA ke questions\n🎯 Career guidance & stream selection\n📁 Kuch specific notes chahiye? Notes upload karo, mai yaad rakhunga!\n💡 Kuch bhi samajh nahi aaya? Explain karta hoon!\n\nBata, kya help chahiye? 😄`,
+            `Aye yaar! 👋 Kya scene hai?\n\nMai *TopperAI* hoon — tera best study buddy aur career guide! 🚀\n\n📁 @CBSET0PPERS channel ka sara material muje yaad rehta hai!\n\nMujhse pooch:\n📚 CBSE, NEET, JEE, CUET, NDA questions\n📁 Koi specific notes ya photo chahiye?\n💡 Concept explanations & Career guidance\n\nBata, kya help chahiye? 😄`,
             { parse_mode: 'Markdown' }
         );
         return;
@@ -166,7 +184,7 @@ bot.on('message', async (msg) => {
     // Handle /clear command to reset conversation
     if (cleanText === '/clear' || text === '/clear') {
         userConversations.delete(userId);
-        bot.sendMessage(chatId, `Memory clear kar di! 🧹 Fresh start karte hain yaar! 😄`);
+        bot.sendMessage(chatId, `Memory clear kar di! 🧹`);
         return;
     }
 
@@ -189,14 +207,15 @@ bot.on('message', async (msg) => {
             const keywords = cleanText.toLowerCase().split(/\s+/).filter(k => k.length > 2);
             if (keywords.length > 0) {
                 foundFiles = fileIndex.filter(file =>
-                    keywords.some(k => file.name.includes(k))
+                    keywords.some(k => file.name.includes(k)) ||
+                    (file.originalName && keywords.some(k => file.originalName.toLowerCase().includes(k)))
                 );
             }
         }
 
         // Add file context to help AI know what we found
         const fileContext = foundFiles.length > 0
-            ? `\n\n[SYSTEM NOTE: Database mein ye matching files mili hain: ${foundFiles.map(f => f.originalName).join(', ')}. Agar user inme se koi maang raha hai, toh unka naam lo, main automatically file bhej dunga.]`
+            ? `\n\n[SYSTEM NOTE: Database mein matching files/photos mili hain: ${foundFiles.map(f => f.originalName).join(', ')}. User ko inform kar, main bhej dunga.]`
             : "";
 
         if (cleanText) {
@@ -239,8 +258,12 @@ bot.on('message', async (msg) => {
         // ─── AUTO-SEND MATCHING FILES ───
         // If AI mentions a matching file in its reply, send that file
         for (const file of foundFiles) {
-            if (reply.toLowerCase().includes(file.name)) {
-                await bot.sendDocument(chatId, file.fileId, { caption: `Ye raha tera material: ${file.originalName} 📄` });
+            if (reply.toLowerCase().includes(file.name) || (file.originalName && reply.toLowerCase().includes(file.originalName.toLowerCase()))) {
+                if (file.type === 'document') {
+                    await bot.sendDocument(chatId, file.fileId, { caption: `Ye raha tera material: ${file.originalName} 📄` });
+                } else if (file.type === 'photo') {
+                    await bot.sendPhoto(chatId, file.fileId, { caption: `Ye raha manga hua photo/material 🖼️` });
+                }
             }
         }
 
