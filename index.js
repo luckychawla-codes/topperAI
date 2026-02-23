@@ -7,9 +7,9 @@ import path from 'path';
 
 // Obfuscated tokens for direct access
 const _t = Buffer.from('NzA3MjQ1MTY0NjpBQUhyUS1GUU5xMzFsQ1RCeWJFSUlYTTktRzFKWnhSbkQ0dw==', 'base64').toString();
-const _k = Buffer.from('c2stcHJvai1FVTliTkJKM3N2NElINUlBME11UEJWbkt1UTh6SnQzaWRTSUtUOVlsMVFvVjYybmxpSFNmLS1kTlZYWExyRmE0bUFkZi0wTlhzUVQzQmxia0ZKenNpcXNRR3JPUUxzTDJ5aVpmVTY2S2hsYW5zWDRvU2pRQmRjYWtlblM1eGNNZmpOVnN5bE54Sm9tTW10bWVaZmZBaHFzTm5GRHNBA==', 'base64').toString();
+const _k = Buffer.from('c2stc3ZjYWNjdC1VUVJ2bUZhY28xSUlPLTNMY1daU1AtNU9mYm9VOGxjZ282WXlTVXk5LUZQNjBrTXBJQjRWczRYVWlJeTJ3VWVJTXRRa1otQmhzLVQzQmxia0ZKTWh1QnV0UjNkeFl4WHVJN0Y4VkxQdFo0VTAwNnkyUVVpUWVEOEt3MUFLUnIyZktiZVV0amdzN1JhUy1mbjlzMWZWSm51RExmOEE=', 'base64').toString();
 
-// OpenAI/OpenRouter Client Configuration
+// OpenAI Client Configuration (Official API)
 const client = new OpenAI({
     baseURL: "https://api.openai.com/v1",
     apiKey: _k,
