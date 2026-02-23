@@ -108,12 +108,19 @@ bot.on('message', async (msg) => {
     if (!text && !photo) return;
 
     // ─── GROUP CHAT LOGIC ───
-    // In groups/supergroups, only respond if bot is @mentioned
+    // In groups/supergroups, only respond if:
+    // 1. Bot is @mentioned in the message, OR
+    // 2. User is replying directly to the bot's message
     const isGroup = chatType === 'group' || chatType === 'supergroup';
     if (isGroup) {
         const isMentioned = text.includes(`@${BOT_USERNAME}`) ||
             (msg.entities && msg.entities.some(e => e.type === 'mention' && text.substring(e.offset, e.offset + e.length) === `@${BOT_USERNAME}`));
-        if (!isMentioned) return; // Silently ignore if not mentioned
+
+        const isReplyToBot = msg.reply_to_message &&
+            msg.reply_to_message.from &&
+            msg.reply_to_message.from.username === BOT_USERNAME;
+
+        if (!isMentioned && !isReplyToBot) return; // Silently ignore
     }
 
     // Strip the bot mention from the text before sending to AI
