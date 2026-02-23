@@ -20,9 +20,15 @@ const bot = new TelegramBot(_t, { polling: true });
 
 console.log("Bot is starting...");
 
-// In-memory file index (resets on restart, but builds up as messages come in)
-// Format: { name: string, fileId: string, type: string, chatId: number }
 const fileIndex = [];
+
+// Model Fallback List (Primary to Backups)
+const MODELS = [
+    "openai/gpt-4o-mini",
+    "google/gemini-2.0-flash-lite-preview-02-05:free",
+    "meta-llama/llama-3.3-70b-instruct",
+    "deepseek/deepseek-chat"
+];
 
 // System prompt - TopperAI persona
 const SYSTEM_PROMPT = `Tu "TopperAI" hai — ek best friend, mentor, aur career guide jo kabhi judge nahi karta. 🤝
@@ -279,13 +285,32 @@ bot.on('message', async (msg) => {
             history.splice(0, history.length - MAX_HISTORY);
         }
 
-        const response = await client.chat.completions.create({
-            model: "openai/gpt-4o-mini",
-            messages: [
-                { role: "system", content: SYSTEM_PROMPT },
-                ...history
-            ],
-        });
+        // ─── AI RESPONSE WITH FALLBACK ───
+        let response;
+        let lastError;
+
+        for (const modelId of MODELS) {
+            try {
+                console.log(`Trying model: ${modelId}`);
+                response = await client.chat.completions.create({
+                    model: modelId,
+                    messages: [
+                        { role: "system", content: SYSTEM_PROMPT },
+                        ...history
+                    ],
+                });
+                console.log(`Success with: ${modelId}`);
+                break; // Exit loop on success
+            } catch (err) {
+                console.error(`Error with ${modelId}:`, err.message);
+                lastError = err;
+                // Continue to next model
+            }
+        }
+
+        if (!response) {
+            throw lastError || new Error("All models failed");
+        }
 
         let reply = response.choices[0].message.content;
 
