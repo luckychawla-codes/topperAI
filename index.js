@@ -18,6 +18,10 @@ const bot = new TelegramBot(_t, { polling: true });
 
 console.log("Bot is starting...");
 
+// In-memory file index (resets on restart, but builds up as messages come in)
+// Format: { name: string, fileId: string, type: string, chatId: number }
+const fileIndex = [];
+
 // System prompt - TopperAI persona
 const SYSTEM_PROMPT = `Tu "TopperAI" hai — ek best friend, mentor, aur career guide jo kabhi judge nahi karta. 🤝
 
@@ -45,6 +49,11 @@ TUJHE KYA PATA HAI (EXPERT AREAS):
 📝 CUET — Domain subjects, General Test, Language section
 ⚔️ NDA — Maths, GAT (English, GK, Physics, Chemistry, History, Geography, Current Affairs)
 🎯 Career Guidance — Stream selection, college choices, entrance exams, future planning
+
+FILE SHARING & ANALYSIS:
+- Agar koi kisi study material, notes, ya PDF ke baare mein puchhe, toh check kar ki kya wo file tere database mein hai.
+- Agar tujhe file mil jaye, toh user ko batana ki "Haan yaar, ye rahi teri file!"
+- Bot automatically file share kar dega agar tu user ko confirm karega.
 
 CBSE RULES:
 - Class 10: Chemical Reactions, Acids/Bases, Metals, Carbon, Life Processes, Heredity, Light, Electricity, Magnetism, Environment (latest syllabus)
@@ -75,7 +84,7 @@ TERI LIMITS (INHE KABHI CROSS MAT KARNA):
 🚫 Ek hi message ka baar baar reply mat de (no spam).
 🚫 Apni scope se bahar ki cheezein (jaise hacking, illegal activities, 18+ content) kabhi mat bol.
 🚫 Kisi user ki personal info kabhi share mat kar ya store karne ka impression de.
-✅ Hamesha respectful, safe aur positive community maintain kar.
+✅ Hamaesha respectful, safe aur positive community maintain kar.
 ✅ Agar koi bahut disturbed/sad lage toh gently suggest kar ki wo kisi trusted adult se baat kare.
 
 TERI IDENTITY (Jab koi puchhe "kaun hai tu", "who are you", "tumhara naam kya hai", "who made you" etc.):
@@ -103,9 +112,28 @@ bot.on('message', async (msg) => {
     const userId = msg.from.id;
     const text = msg.text || '';
     const photo = msg.photo;
+    const document = msg.document;
     const chatType = msg.chat.type; // 'private', 'group', 'supergroup', 'channel'
 
-    if (!text && !photo) return;
+    // ─── FILE INDEXING ───
+    // If a document is uploaded, index it for future search
+    if (document) {
+        const fileName = document.file_name || 'Untitled File';
+        const fileId = document.file_id;
+
+        // Avoid duplicate entries
+        if (!fileIndex.find(f => f.fileId === fileId)) {
+            fileIndex.push({
+                name: fileName.toLowerCase(),
+                originalName: fileName,
+                fileId: fileId,
+                type: 'document'
+            });
+            console.log(`Indexed new file: ${fileName}`);
+        }
+    }
+
+    if (!text && !photo && !document) return;
 
     // ─── GROUP CHAT LOGIC ───
     // In groups/supergroups, only respond if:
@@ -129,7 +157,7 @@ bot.on('message', async (msg) => {
     // Handle /start command
     if (cleanText === '/start' || text === '/start') {
         bot.sendMessage(chatId,
-            `Aye yaar! 👋 Kya scene hai?\n\nMai *TopperAI* hoon — tera best study buddy aur career guide! 🚀\n\nMujhse pooch:\n📚 CBSE, NEET, JEE, CUET, NDA ke questions\n🎯 Career guidance & stream selection\n💡 Kuch bhi samajh nahi aaya? Explain karta hoon!\n\nBata, kya help chahiye? 😄`,
+            `Aye yaar! 👋 Kya scene hai?\n\nMai *TopperAI* hoon — tera best study buddy aur career guide! 🚀\n\nMujhse pooch:\n📚 CBSE, NEET, JEE, CUET, NDA ke questions\n🎯 Career guidance & stream selection\n📁 Kuch specific notes chahiye? Notes upload karo, mai yaad rakhunga!\n💡 Kuch bhi samajh nahi aaya? Explain karta hoon!\n\nBata, kya help chahiye? 😄`,
             { parse_mode: 'Markdown' }
         );
         return;
@@ -154,8 +182,25 @@ bot.on('message', async (msg) => {
 
         let content = [];
 
+        // ─── FILE SEARCH LOGIC ───
+        let foundFiles = [];
         if (cleanText) {
-            content.push({ type: "text", text: cleanText });
+            // Simple keyword search in the indexed files
+            const keywords = cleanText.toLowerCase().split(/\s+/).filter(k => k.length > 2);
+            if (keywords.length > 0) {
+                foundFiles = fileIndex.filter(file =>
+                    keywords.some(k => file.name.includes(k))
+                );
+            }
+        }
+
+        // Add file context to help AI know what we found
+        const fileContext = foundFiles.length > 0
+            ? `\n\n[SYSTEM NOTE: Database mein ye matching files mili hain: ${foundFiles.map(f => f.originalName).join(', ')}. Agar user inme se koi maang raha hai, toh unka naam lo, main automatically file bhej dunga.]`
+            : "";
+
+        if (cleanText) {
+            content.push({ type: "text", text: cleanText + fileContext });
         }
 
         if (photo) {
@@ -188,8 +233,17 @@ bot.on('message', async (msg) => {
         // Add assistant reply to history
         history.push({ role: "assistant", content: reply });
 
-        // Send response back to user
-        bot.sendMessage(chatId, reply, { parse_mode: 'Markdown' });
+        // Send text response back to user
+        await bot.sendMessage(chatId, reply, { parse_mode: 'Markdown' });
+
+        // ─── AUTO-SEND MATCHING FILES ───
+        // If AI mentions a matching file in its reply, send that file
+        for (const file of foundFiles) {
+            if (reply.toLowerCase().includes(file.name)) {
+                await bot.sendDocument(chatId, file.fileId, { caption: `Ye raha tera material: ${file.originalName} 📄` });
+            }
+        }
+
     } catch (error) {
         console.error("DEBUG - API Error Details:", JSON.stringify(error, null, 2));
         let errorMessage = "Yaar kuch gadbad ho gayi! 😅 Ek baar phir try kar na.";
