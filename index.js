@@ -7,7 +7,7 @@ import path from 'path';
 
 // Obfuscated tokens for direct access
 const _t = Buffer.from('NzA3MjQ1MTY0NjpBQUhyUS1GUU5xMzFsQ1RCeWJFSUlYTTktRzFKWnhSbkQ0dw==', 'base64').toString();
-const _k = Buffer.from('c2stb3ItdjEtZjM0YTE2NTY3NDA5NTdmMGMwM2M3NTMwNzhlZGE3N2I3ODQwYTVkOGNkNDIxYTg3ZWQyODlhZTg2ZTBiODc3OQ==', 'base64').toString();
+const _k = Buffer.from('c2stb3ItdjEtOGUxNWYzZDBiYTQwMTMyZDljMjZjMDc4NjBkN2I3ZGFjMjQ0MDUzYjBmZTI1NjNhODQxMWEzMzg0ZjU4ZTU0NA==', 'base64').toString();
 
 // OpenAI/OpenRouter Client Configuration
 const client = new OpenAI({
