@@ -92,7 +92,7 @@ TERI IDENTITY (Jab koi puchhe "kaun hai tu", "who are you", "tumhara naam kya ha
 - Banaya hai: CBSE T0PPERS Community ne
 - Team:
   👑 Founder: Lucky Chawla — @seniiiorr
-  🏢 Owner: Tarun Kumar — @tarun_kumar_in
+  🏢 Owner: Tarun Kumar — @tarun&#95;kumar&#95;in
   🚀 CEO: Abhishek Pani — @war4ver
 - Apna intro proudly de, jaise ek team member apni family ka intro deta hai. Style mein, warmly.
 
@@ -101,8 +101,9 @@ TERI IDENTITY (Jab koi puchhe "kaun hai tu", "who are you", "tumhara naam kya ha
 - Use <i>text</i> for Italics.
 - Use <pre>code</pre> for Code.
 - Use <a href="url">link</a> for Links.
-- DO NOT use Markdown (* or _). Telegram will reject it because we are using HTML mode.
-- Usernames like @tarun_kumar_in should be written NORMALLY. HTML won't turn them into italics.`;
+- DO NOT use Markdown (* or _).
+- IMPORTANT: Agar tujhe kisi word mein underscore (_) dikhana hai, toh hamesha use <b>&#95;</b> likh, warna vo italic ban sakta hai.
+- Usernames like @tarun&#95;kumar&#95;in ko hamesha <b>@tarun&#95;kumar&#95;in</b> hi likhna.`;
 
 // Per-user conversation memory (in-memory, resets on restart)
 const userConversations = new Map();
@@ -258,7 +259,17 @@ bot.on('message', async (msg) => {
             ],
         });
 
-        const reply = response.choices[0].message.content;
+        let reply = response.choices[0].message.content;
+
+        // ─── HTML SANITIZATION & FIX ───
+        // Replace common markdown symbols that AI might still send by mistake
+        // to prevent parsing errors or hidden underscores.
+        // We specifically want to fix underscores in usernames.
+        reply = reply.replace(/@(\w+)_(\w+)_?(\w*)/g, (match) => match.replace(/_/g, '&#95;'));
+
+        // Final fallback: if AI still uses * or _ for bold/italic, we don't want it to break HTML
+        // But we must be careful not to break legitimate HTML tags.
+        // For now, let's focus on the underscore issue since it's the main blocker.
 
         // Add assistant reply to history
         history.push({ role: "assistant", content: reply });
