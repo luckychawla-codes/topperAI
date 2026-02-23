@@ -127,9 +127,12 @@ const addToIndex = (msg, type) => {
             name: fileName.toLowerCase(),
             originalName: fileName,
             fileId: fileId,
-            type: type
+            type: type,
+            sourceChatId: msg.chat.id,
+            sourceMessageId: msg.message_id,
+            sourceUsername: msg.chat.username
         });
-        console.log(`Indexed new ${type}: ${fileName}`);
+        console.log(`Indexed new ${type}: ${fileName} from ${msg.chat.title || msg.chat.username}`);
     }
 };
 
@@ -256,13 +259,29 @@ bot.on('message', async (msg) => {
         await bot.sendMessage(chatId, reply, { parse_mode: 'Markdown' });
 
         // ─── AUTO-SEND MATCHING FILES ───
-        // If AI mentions a matching file in its reply, send that file
+        // Auto-send matching files and PHOTOS (Forwarding from channel for professional look)
         for (const file of foundFiles) {
-            if (reply.toLowerCase().includes(file.name) || (file.originalName && reply.toLowerCase().includes(file.originalName.toLowerCase()))) {
-                if (file.type === 'document') {
-                    await bot.sendDocument(chatId, file.fileId, { caption: `Ye raha tera material: ${file.originalName} 📄` });
-                } else if (file.type === 'photo') {
-                    await bot.sendPhoto(chatId, file.fileId, { caption: `Ye raha manga hua photo/material 🖼️` });
+            const isMatch = reply.toLowerCase().includes(file.name) ||
+                (file.originalName && reply.toLowerCase().includes(file.originalName.toLowerCase()));
+
+            if (isMatch) {
+                try {
+                    // Try to forward for better "source" visibility
+                    await bot.forwardMessage(chatId, file.sourceChatId, file.sourceMessageId);
+
+                    // Also provide direct link if it's from a public channel
+                    if (file.sourceUsername) {
+                        const link = `https://t.me/${file.sourceUsername}/${file.sourceMessageId}`;
+                        await bot.sendMessage(chatId, `Direct Link: ${link}`, { disable_web_page_preview: true });
+                    }
+                } catch (forwardError) {
+                    // Fallback to sending copy if forward fails
+                    console.error("Forward failed, falling back to send:", forwardError.message);
+                    if (file.type === 'document') {
+                        await bot.sendDocument(chatId, file.fileId, { caption: `Ye raha tera material: ${file.originalName} 📄` });
+                    } else if (file.type === 'photo') {
+                        await bot.sendPhoto(chatId, file.fileId, { caption: `Ye raha manga hua photo/material 🖼️` });
+                    }
                 }
             }
         }
