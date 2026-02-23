@@ -20,7 +20,27 @@ const bot = new TelegramBot(_t, { polling: true });
 
 console.log("Bot is starting...");
 
-const fileIndex = [];
+const INDEX_FILE = './fileIndex.json';
+let fileIndex = [];
+
+// Load existing index on startup
+try {
+    if (fs.existsSync(INDEX_FILE)) {
+        fileIndex = JSON.parse(fs.readFileSync(INDEX_FILE, 'utf8'));
+        console.log(`Loaded ${fileIndex.length} files from persistent storage.`);
+    }
+} catch (e) {
+    console.error("Error loading index file:", e.message);
+    fileIndex = [];
+}
+
+const saveIndex = () => {
+    try {
+        fs.writeFileSync(INDEX_FILE, JSON.stringify(fileIndex, null, 2));
+    } catch (e) {
+        console.error("Error saving index file:", e.message);
+    }
+};
 
 // Model Fallback List (Primary to Backups)
 const MODELS = [
@@ -164,6 +184,17 @@ const addToIndex = (msg, type) => {
 
     if (!fileId) return;
 
+    // Support indexing from forwarded messages (to sync past material)
+    let sourceChatId = msg.chat.id;
+    let sourceMessageId = msg.message_id;
+    let sourceUsername = msg.chat.username;
+
+    if (msg.forward_from_chat) {
+        sourceChatId = msg.forward_from_chat.id;
+        sourceMessageId = msg.forward_from_message_id;
+        sourceUsername = msg.forward_from_chat.username;
+    }
+
     // Avoid duplicate entries
     if (!fileIndex.find(f => f.fileId === fileId)) {
         fileIndex.push({
@@ -171,11 +202,13 @@ const addToIndex = (msg, type) => {
             originalName: fileName,
             fileId: fileId,
             type: type,
-            sourceChatId: msg.chat.id,
-            sourceMessageId: msg.message_id,
-            sourceUsername: msg.chat.username
+            sourceChatId: sourceChatId,
+            sourceMessageId: sourceMessageId,
+            sourceUsername: sourceUsername,
+            indexedAt: new Date().toISOString()
         });
-        console.log(`Indexed new ${type}: ${fileName} from ${msg.chat.title || msg.chat.username}`);
+        saveIndex(); // Save to disk
+        console.log(`Indexed new ${type}: ${fileName} from ${sourceUsername || 'private'}`);
     }
 };
 
@@ -330,33 +363,44 @@ bot.on('message', async (msg) => {
         // Send text response back to user
         await bot.sendMessage(chatId, reply, { parse_mode: 'HTML' });
 
-        // Auto-send matching files and PHOTOS (Forwarding or Sending)
+        // Auto-send matching files and PHOTOS (Forwarding to DM if in group)
         for (const file of foundFiles) {
             const isMatch = reply.toLowerCase().includes(file.name) ||
                 (file.originalName && reply.toLowerCase().includes(file.originalName.toLowerCase()));
 
             if (isMatch) {
-                try {
-                    if (file.isLocal) {
-                        // Send local file
-                        await bot.sendDocument(chatId, file.localPath, { caption: `Latest Syllabus: ${file.originalName} 📄` });
-                    } else {
-                        // Forward from channel for better "source" visibility
-                        await bot.forwardMessage(chatId, file.sourceChatId, file.sourceMessageId);
+                // If in a group, try to send to DM, otherwise group
+                const targetId = isGroup ? userId : chatId;
 
-                        // Also provide direct link if it's from a public channel
-                        if (file.sourceUsername) {
-                            const link = `https://t.me/${file.sourceUsername}/${file.sourceMessageId}`;
-                            await bot.sendMessage(chatId, `Direct Link: ${link}`, { disable_web_page_preview: true, parse_mode: 'HTML' });
-                        }
+                try {
+                    // Try to forward for better "source" visibility
+                    await bot.forwardMessage(targetId, file.sourceChatId, file.sourceMessageId);
+
+                    // If we successfully sent to DM and it was requested in a group, notify them
+                    if (isGroup) {
+                        await bot.sendMessage(chatId, `DM check kar yaar! 📥 Maine vahan file bhej di hai.`, { reply_to_message_id: msg.message_id });
                     }
                 } catch (error) {
-                    console.error("Delivery failed:", error.message);
-                    if (file.fileId) {
+                    console.error("Direct DM failed (User might not have started bot):", error.message);
+
+                    // Fallback: If DM failed in group, ask user to start bot or send in group as last resort
+                    if (isGroup) {
+                        await bot.sendMessage(chatId,
+                            `@${msg.from.username || 'yaar'}, mujhe DM mein file bhejne ke liye pehle mujhse /start karna padega! Ya phir ye rahi teri file:`,
+                            { parse_mode: 'HTML' }
+                        );
+                        // Send in group as fallback
                         if (file.type === 'document') {
-                            await bot.sendDocument(chatId, file.fileId, { caption: `Material: ${file.originalName} 📄` });
-                        } else if (file.type === 'photo') {
-                            await bot.sendPhoto(chatId, file.fileId, { caption: `Study Material 🖼️` });
+                            await bot.sendDocument(chatId, file.fileId, { caption: `Study Material: ${file.originalName} 📄` });
+                        } else {
+                            await bot.sendPhoto(chatId, file.fileId, { caption: `Material Photo 🖼️` });
+                        }
+                    } else {
+                        // Fallback logic for private/direct messaging
+                        if (file.type === 'document') {
+                            await bot.sendDocument(chatId, file.fileId, { caption: `Study Material: ${file.originalName} 📄` });
+                        } else {
+                            await bot.sendPhoto(chatId, file.fileId, { caption: `Material Photo 🖼️` });
                         }
                     }
                 }
