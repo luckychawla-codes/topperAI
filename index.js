@@ -50,6 +50,8 @@ const MODELS = [
     "deepseek/deepseek-chat"
 ];
 
+const ALLOWED_ADMINS = ['seniiiorr', 'tarun_kumar_in'];
+
 // System prompt - TopperAI persona
 const SYSTEM_PROMPT = `Tu "TopperAI" hai — ek best friend, mentor, aur career guide jo kabhi judge nahi karta. 🤝
 
@@ -226,9 +228,21 @@ bot.on('message', async (msg) => {
     const document = msg.document;
     const chatType = msg.chat.type;
 
-    // Index files/photos from messages too
-    if (document) addToIndex(msg, 'document');
-    if (photo) addToIndex(msg, 'photo');
+    // ─── ADMIN SYNC LOGIC ───
+    // Only index files from messages if sent by authorized admins
+    const username = msg.from?.username;
+    const isAdmin = username && ALLOWED_ADMINS.includes(username);
+
+    if (document || photo) {
+        if (isAdmin) {
+            addToIndex(msg, document ? 'document' : 'photo');
+            if (chatType === 'private') {
+                bot.sendMessage(chatId, `✅ Material synced successfully, boss! Ab ye database mein save hai.`, { parse_mode: 'HTML' });
+            }
+        } else if (chatType === 'private') {
+            bot.sendMessage(chatId, `🚫 Sorry, sirf admins hi files sync kar sakte hain.`, { parse_mode: 'HTML' });
+        }
+    }
 
     if (!text && !photo && !document) return;
 
