@@ -92,9 +92,17 @@ TERI IDENTITY (Jab koi puchhe "kaun hai tu", "who are you", "tumhara naam kya ha
 - Banaya hai: CBSE T0PPERS Community ne
 - Team:
   👑 Founder: Lucky Chawla — @seniiiorr
-  🏢 Owner: Tarun Kumar — @tarun\_kumar\_in
+  🏢 Owner: Tarun Kumar — @tarun_kumar_in
   🚀 CEO: Abhishek Pani — @war4ver
-- Apna intro proudly de, jaise ek team member apni family ka intro deta hai. Style mein, warmly.`;
+- Apna intro proudly de, jaise ek team member apni family ka intro deta hai. Style mein, warmly.
+
+🚨 FORMATTING RULE (MUST FOLLOW):
+- Use <b>text</b> for Bold.
+- Use <i>text</i> for Italics.
+- Use <pre>code</pre> for Code.
+- Use <a href="url">link</a> for Links.
+- DO NOT use Markdown (* or _). Telegram will reject it because we are using HTML mode.
+- Usernames like @tarun_kumar_in should be written NORMALLY. HTML won't turn them into italics.`;
 
 // Per-user conversation memory (in-memory, resets on restart)
 const userConversations = new Map();
@@ -178,8 +186,8 @@ bot.on('message', async (msg) => {
     // Handle /start command
     if (cleanText === '/start' || text === '/start') {
         bot.sendMessage(chatId,
-            `Aye yaar! 👋 Kya scene hai?\n\nMai *TopperAI* hoon — tera best study buddy aur career guide! 🚀\n\n📁 @CBSET0PPERS channel ka sara material muje yaad rehta hai!\n\nMujhse pooch:\n📚 CBSE, NEET, JEE, CUET, NDA questions\n📁 Koi specific notes ya photo chahiye?\n💡 Concept explanations & Career guidance\n\nBata, kya help chahiye? 😄`,
-            { parse_mode: 'Markdown' }
+            `Aye yaar! 👋 Kya scene hai?\n\nMai <b>TopperAI</b> hoon — tera best study buddy aur career guide! 🚀\n\n📁 @CBSET0PPERS channel ka sara material muje yaad rehta hai!\n\nMujhse pooch:\n📚 CBSE, NEET, JEE, CUET, NDA questions\n📁 Koi specific notes ya photo chahiye?\n💡 Concept explanations & Career guidance\n\nBata, kya help chahiye? 😄`,
+            { parse_mode: 'HTML' }
         );
         return;
     }
@@ -187,7 +195,7 @@ bot.on('message', async (msg) => {
     // Handle /clear command to reset conversation
     if (cleanText === '/clear' || text === '/clear') {
         userConversations.delete(userId);
-        bot.sendMessage(chatId, `Memory clear kar di! 🧹`);
+        bot.sendMessage(chatId, `Memory clear kar di! 🧹`, { parse_mode: 'HTML' });
         return;
     }
 
@@ -256,7 +264,7 @@ bot.on('message', async (msg) => {
         history.push({ role: "assistant", content: reply });
 
         // Send text response back to user
-        await bot.sendMessage(chatId, reply, { parse_mode: 'Markdown' });
+        await bot.sendMessage(chatId, reply, { parse_mode: 'HTML' });
 
         // ─── AUTO-SEND MATCHING FILES ───
         // Auto-send matching files and PHOTOS (Forwarding from channel for professional look)
@@ -272,7 +280,7 @@ bot.on('message', async (msg) => {
                     // Also provide direct link if it's from a public channel
                     if (file.sourceUsername) {
                         const link = `https://t.me/${file.sourceUsername}/${file.sourceMessageId}`;
-                        await bot.sendMessage(chatId, `Direct Link: ${link}`, { disable_web_page_preview: true });
+                        await bot.sendMessage(chatId, `Direct Link: ${link}`, { disable_web_page_preview: true, parse_mode: 'HTML' });
                     }
                 } catch (forwardError) {
                     // Fallback to sending copy if forward fails
