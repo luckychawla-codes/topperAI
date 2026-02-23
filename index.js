@@ -82,8 +82,10 @@ TUJHE KYA PATA HAI (EXPERT AREAS):
 
 FILE SHARING & ANALYSIS:
 - Agar koi kisi study material, notes, ya PDF ke baare mein puchhe, toh check kar ki kya wo file tere database mein hai.
-- Agar tujhe file mil jaye, toh user ko batana ki "Haan yaar, ye rahi teri file!"
-- Bot automatically file share kar dega agar tu user ko confirm karega.
+- Agar file mil jaye: "Haan yaar, ye rahi teri file!" ya "Ye le buddy, mil gayi!" bol.
+- Agar file NA mile: Strictly ye message de — "This material is not available in this group."
+- Bot automatically file share kar dega same jagah (group ya DM) jahan manga gaya hai.
+- Reply hamesha user ke message ko tag (reply) karke hona chahiye.
 
 CBSE RULES:
 - Class 10: Chemical Reactions, Acids/Bases, Metals, Carbon, Life Processes, Heredity, Light, Electricity, Magnetism, Environment (latest syllabus)
@@ -307,9 +309,12 @@ bot.on('message', async (msg) => {
         }
 
         // Add file context to help AI know what we found
-        const fileContext = foundFiles.length > 0
-            ? `\n\n[SYSTEM NOTE: Database mein matching files/photos mili hain: ${foundFiles.map(f => f.originalName).join(', ')}. User ko inform kar, main bhej dunga.]`
-            : "";
+        let fileContext = "";
+        if (foundFiles.length > 0) {
+            fileContext = `\n\n[SYSTEM NOTE: Database mein matching files mili hain: ${foundFiles.map(f => f.originalName).join(', ')}. Inka zikr kar, main PDF bhej dunga.]`;
+        } else if (cleanText && (cleanText.toLowerCase().includes('pdf') || cleanText.toLowerCase().includes('notes') || cleanText.toLowerCase().includes('file') || cleanText.toLowerCase().includes('syllabus'))) {
+            fileContext = `\n\n[SYSTEM NOTE: User ne material manga hai par mere database mein nahi mila. User ko politely bol ki "Ye material abhi is group mein available nahi hai."]`;
+        }
 
         if (cleanText) {
             content.push({ type: "text", text: cleanText + fileContext });
@@ -374,62 +379,42 @@ bot.on('message', async (msg) => {
         // Add assistant reply to history
         history.push({ role: "assistant", content: reply });
 
-        // Send text response back to user
-        await bot.sendMessage(chatId, reply, { parse_mode: 'HTML' });
+        // ─── DELIVERY LOGIC (Simplified: Group -> Group, DM -> DM) ───
+        const filesToDeliver = foundFiles.filter(file =>
+            reply.toLowerCase().includes(file.name) ||
+            (file.originalName && reply.toLowerCase().includes(file.originalName.toLowerCase()))
+        );
 
-        // Auto-send matching files and PHOTOS (Forwarding to DM if in group)
-        for (const file of foundFiles) {
-            const isMatch = reply.toLowerCase().includes(file.name) ||
-                (file.originalName && reply.toLowerCase().includes(file.originalName.toLowerCase()));
-
-            if (isMatch) {
-                // If in a group, try to send to DM, otherwise group
-                const targetId = isGroup ? userId : chatId;
-
+        if (filesToDeliver.length > 0) {
+            // "NO BAKCHODI" MODE: If files found, ONLY send the files, no text.
+            for (const file of filesToDeliver) {
                 try {
-                    // Try to forward for better "source" visibility
-                    await bot.forwardMessage(targetId, file.sourceChatId, file.sourceMessageId);
-
-                    // If we successfully sent to DM and it was requested in a group, notify them
-                    if (isGroup) {
-                        await bot.sendMessage(chatId, `DM check kar yaar! 📥 Maine vahan file bhej di hai.`, { reply_to_message_id: msg.message_id });
+                    if (file.isLocal) {
+                        await bot.sendDocument(chatId, file.localPath, { reply_to_message_id: msg.message_id });
+                    } else {
+                        // Forward or Copy based on preference (Forwarding is cleaner for source)
+                        await bot.forwardMessage(chatId, file.sourceChatId, file.sourceMessageId);
                     }
                 } catch (error) {
-                    console.error("Direct DM failed (User might not have started bot):", error.message);
-
-                    // Fallback: If DM failed in group, ask user to start bot or send in group as last resort
-                    if (isGroup) {
-                        await bot.sendMessage(chatId,
-                            `@${msg.from.username || 'yaar'}, mujhe DM mein file bhejne ke liye pehle mujhse /start karna padega! Ya phir ye rahi teri file:`,
-                            { parse_mode: 'HTML' }
-                        );
-                        // Send in group as fallback
+                    console.error("Delivery failed:", error.message);
+                    if (file.fileId) {
                         if (file.type === 'document') {
-                            await bot.sendDocument(chatId, file.fileId, { caption: `Study Material: ${file.originalName} 📄` });
+                            await bot.sendDocument(chatId, file.fileId, { reply_to_message_id: msg.message_id });
                         } else {
-                            await bot.sendPhoto(chatId, file.fileId, { caption: `Material Photo 🖼️` });
-                        }
-                    } else {
-                        // Fallback logic for private/direct messaging
-                        if (file.type === 'document') {
-                            await bot.sendDocument(chatId, file.fileId, { caption: `Study Material: ${file.originalName} 📄` });
-                        } else {
-                            await bot.sendPhoto(chatId, file.fileId, { caption: `Material Photo 🖼️` });
+                            await bot.sendPhoto(chatId, file.fileId, { reply_to_message_id: msg.message_id });
                         }
                     }
                 }
             }
+        } else {
+            // No files found or not a file request: Send AI's text reply
+            await bot.sendMessage(chatId, reply, { parse_mode: 'HTML', reply_to_message_id: msg.message_id });
         }
 
     } catch (error) {
         console.error("DEBUG - API Error Details:", JSON.stringify(error, null, 2));
         let errorMessage = "Yaar kuch gadbad ho gayi! 😅 Ek baar phir try kar na.";
-
-        if (error.status === 401) {
-            errorMessage = "⚠️ API Key Error! Admin ko batao please.";
-        }
-
-        bot.sendMessage(chatId, errorMessage);
+        bot.sendMessage(chatId, errorMessage, { reply_to_message_id: msg.message_id });
     }
 });
 
